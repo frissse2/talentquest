@@ -3,6 +3,7 @@ kind: Kustomization
 resources:
   - data-namespace.yaml
   - media-namespace.yaml
+  - metallb-namespace.yaml
   - observability-namespace.yaml
   - platform-namespace.yaml
   - pipelines-namespace.yaml
