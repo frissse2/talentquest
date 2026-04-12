@@ -11,7 +11,6 @@ spec:
   storageClassName: ""
   hostPath:
     path: /var/local/media/library/tv
-    type: DirectoryOrCreate
   claimRef:
     namespace: media
     name: media-library-tv

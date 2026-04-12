@@ -10,8 +10,7 @@ spec:
   persistentVolumeReclaimPolicy: Retain
   storageClassName: ""
   hostPath:
-    path: /var/local/media/downloads/
-    type: DirectoryOrCreate
+    path: /var/local/media/downloads
   claimRef:
     namespace: media
     name: media-downloads

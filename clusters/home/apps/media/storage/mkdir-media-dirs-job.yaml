@@ -2,7 +2,6 @@ apiVersion: batch/v1
 kind: Job
 metadata:
   name: mkdir-media-dirs
-  namespace: ops
 spec:
   backoffLimit: 0
   template:
@@ -20,9 +19,11 @@ spec:
               mkdir -p /host/var/local/media/library/tv
               mkdir -p /host/var/local/media/downloads/incomplete
               mkdir -p /host/var/local/media/downloads/complete
+              chown -R 1000:1000 /host/var/local/media/downloads
               ls -ld /host/var/local/media/library
               ls -ld /host/var/local/media/library/movies
               ls -ld /host/var/local/media/library/tv
+              ls -ld /host/var/local/media/downloads
               ls -ld /host/var/local/media/downloads/incomplete
               ls -ld /host/var/local/media/downloads/complete
           volumeMounts:
@@ -33,4 +34,3 @@ spec:
           hostPath:
             path: /var/local/media
             type: DirectoryOrCreate
-
