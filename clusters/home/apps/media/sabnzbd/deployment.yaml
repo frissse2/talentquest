@@ -84,7 +84,6 @@ spec:
               mountPath: /downloads
             - name: downloads
               mountPath: /incomplete-downloads
-              subPath: incomplete
       volumes:
         - name: config
           persistentVolumeClaim:
