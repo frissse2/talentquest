@@ -1,0 +1,32 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: prep-media-downloads
+  namespace: ops
+spec:
+  backoffLimit: 0
+  template:
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: prep
+          image: alpine:3.22
+          command:
+            - /bin/sh
+            - -c
+            - |
+              set -eux
+              mkdir -p /host/var/local/media/downloads/incomplete
+              mkdir -p /host/var/local/media/downloads/complete
+              chown -R 1000:1000 /host/var/local/media/downloads
+              ls -ld /host/var/local/media/downloads
+              ls -ld /host/var/local/media/downloads/incomplete
+              ls -ld /host/var/local/media/downloads/complete
+          volumeMounts:
+            - name: host-media
+              mountPath: /host/var/local/media
+      volumes:
+        - name: host-media
+          hostPath:
+            path: /var/local/media
+            type: DirectoryOrCreate

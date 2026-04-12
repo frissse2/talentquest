@@ -1,4 +1,8 @@
 ---
+- name: Read GitHub token from environment
+  ansible.builtin.set_fact:
+    github_token: "{{ lookup('ansible.builtin.env', 'GITHUB_TOKEN') | default('', true) }}"
+
 - name: Check flux CLI is installed
   ansible.builtin.command: which flux
   register: flux_cli_check
@@ -16,16 +20,24 @@
   changed_when: false
   failed_when: false
 
+- name: Fail if GITHUB_TOKEN is not available for Flux bootstrap
+  ansible.builtin.fail:
+    msg: "GITHUB_TOKEN is empty in the Ansible process environment, so flux bootstrap cannot authenticate to GitHub."
+  when:
+    - flux_namespace_check.rc != 0
+    - github_token | length == 0
+
 - name: Bootstrap Flux if not already installed
   ansible.builtin.command: >
     flux bootstrap github
+    --token-auth
     --owner={{ flux_owner }}
     --repository={{ flux_repository }}
     --branch={{ gitops_branch }}
     --path={{ gitops_path }}
     --personal
   environment:
-    GITHUB_TOKEN: "{{ lookup('env', 'GITHUB_TOKEN') }}"
+    GITHUB_TOKEN: "{{ github_token }}"
     KUBECONFIG: "{{ kubeconfig_path }}"
   register: flux_bootstrap_result
   changed_when: flux_bootstrap_result.rc == 0

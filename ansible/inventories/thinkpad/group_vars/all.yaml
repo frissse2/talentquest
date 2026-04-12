@@ -7,7 +7,7 @@ gitops_branch: "main"
 gitops_path: "clusters/home"
 
 flux_owner: "frissse2"
-flux_repository: "talentquest"
+flux_repository: "talentquestc"
 flux_namespace: "flux-system"
 
 sops_age_secret_name: "sops-age"
