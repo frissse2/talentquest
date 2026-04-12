@@ -79,3 +79,20 @@
     node-role.kubernetes.io/control-plane:NoSchedule-
   when: taint_check.rc == 0
   changed_when: true
+
+- name: Check if exclude-from-external-load-balancers label exists
+  ansible.builtin.shell: >
+    kubectl --kubeconfig {{ kubeconfig_path }} get node {{ item }}
+    -o jsonpath='{.metadata.labels.node\.kubernetes\.io/exclude-from-external-load-balancers}' | grep -q .
+  loop: "{{ controlplane_nodes.stdout_lines }}"
+  register: lb_exclude_label_checks
+  changed_when: false
+  failed_when: false
+
+- name: Remove exclude-from-external-load-balancers label from control-plane nodes
+  ansible.builtin.command: >
+    kubectl --kubeconfig {{ kubeconfig_path }} label node {{ item.item }}
+    node.kubernetes.io/exclude-from-external-load-balancers-
+  loop: "{{ lb_exclude_label_checks.results }}"
+  when: item.rc == 0
+  changed_when: true

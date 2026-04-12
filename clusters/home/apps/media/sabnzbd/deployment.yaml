@@ -16,6 +16,53 @@ spec:
         seccompProfile:
           type: RuntimeDefault
       initContainers:
+        - name: prepare-config
+          image: alpine:3.22
+          command:
+            - /bin/sh
+            - -c
+            - |
+              set -eu
+              config=/config/sabnzbd.ini
+              hosts='sabnzbd.home.arpa,localhost,127.0.0.1,::1,'
+
+              if [ -f "$config" ]; then
+                if grep -q '^host_whitelist = ' "$config"; then
+                  sed -i "s|^host_whitelist = .*|host_whitelist = ${hosts}|" "$config"
+                else
+                  awk -v hosts="$hosts" '
+                    BEGIN { inserted = 0 }
+                    /^\[misc\]$/ && !inserted {
+                      print
+                      print "host_whitelist = " hosts
+                      inserted = 1
+                      next
+                    }
+                    { print }
+                    END {
+                      if (!inserted) {
+                        print "[misc]"
+                        print "host_whitelist = " hosts
+                      }
+                    }
+                  ' "$config" > "${config}.tmp"
+                  mv "${config}.tmp" "$config"
+                fi
+              else
+                printf '%s\n' \
+                  '__version__ = 19' \
+                  '__encoding__ = utf-8' \
+                  '[misc]' \
+                  "host_whitelist = ${hosts}" \
+                  'download_dir = Downloads/incomplete' \
+                  'complete_dir = Downloads/complete' \
+                  > "$config"
+              fi
+
+              chown 1000:1000 "$config"
+          volumeMounts:
+            - name: config
+              mountPath: /config
         - name: prepare-downloads
           image: alpine:3.22
           command:
