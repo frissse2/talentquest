@@ -2,8 +2,9 @@ apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 resources:
   - data-namespace.yaml
-  - media-namespaces.yaml
+  - media-namespace.yaml
   - observability-namespace.yaml
-  - pipelines-namespaces.yaml
-  - serving-namespaces.yaml
+  - platform-namespace.yaml
+  - pipelines-namespace.yaml
+  - serving-namespace.yaml
   - tailscale-namespace.yaml
