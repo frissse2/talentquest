@@ -1,0 +1,146 @@
+---
+- name: Check helm is installed
+  ansible.builtin.command: which helm
+  register: helm_check
+  changed_when: false
+
+- name: Fail if helm is missing
+  ansible.builtin.fail:
+    msg: "helm is not installed on the machine running Ansible."
+  when: helm_check.rc != 0
+
+- name: Check whether the Cilium Helm repo is already configured
+  ansible.builtin.command:
+    argv:
+      - helm
+      - repo
+      - list
+      - -o
+      - json
+  register: helm_repo_list
+  changed_when: false
+
+- name: Add the Cilium Helm repo
+  ansible.builtin.command:
+    argv:
+      - helm
+      - repo
+      - add
+      - "{{ cilium_helm_repo_name }}"
+      - "{{ cilium_helm_repo_url }}"
+  when: >
+    (
+      helm_repo_list.stdout | from_json
+      | selectattr('name', 'equalto', cilium_helm_repo_name)
+      | selectattr('url', 'equalto', cilium_helm_repo_url)
+      | list
+      | length
+    ) == 0
+  changed_when: true
+
+- name: Refresh the Cilium Helm repo metadata
+  ansible.builtin.command:
+    argv:
+      - helm
+      - repo
+      - update
+      - "{{ cilium_helm_repo_name }}"
+  changed_when: false
+
+- name: Install or upgrade Cilium with Helm
+  block:
+    - name: Create a temporary Cilium values file
+      ansible.builtin.tempfile:
+        state: file
+        suffix: -cilium-values.yaml
+      register: cilium_values_file
+
+    - name: Render the Cilium values file
+      ansible.builtin.copy:
+        dest: "{{ cilium_values_file.path }}"
+        mode: "0600"
+        content: |
+          {{ cilium_helm_values | combine(cilium_helm_extra_values, recursive=True) | to_nice_yaml(indent=2, sort_keys=False) }}
+
+    - name: Check whether the Cilium release already exists
+      ansible.builtin.command:
+        argv:
+          - helm
+          - status
+          - "{{ cilium_release_name }}"
+          - -n
+          - "{{ cilium_namespace }}"
+      environment:
+        KUBECONFIG: "{{ kubeconfig_path }}"
+      register: cilium_release_status
+      changed_when: false
+      failed_when: false
+
+    - name: Deploy Cilium with Helm
+      ansible.builtin.command: >
+        helm upgrade --install {{ cilium_release_name }} {{ cilium_chart_ref }}
+        --namespace {{ cilium_namespace }}
+        --create-namespace
+        --values {{ cilium_values_file.path }}
+        --wait
+        --timeout {{ cilium_helm_wait_timeout }}
+        {% if cilium_chart_version | trim | length > 0 %}
+        --version {{ cilium_chart_version }}
+        {% endif %}
+      environment:
+        KUBECONFIG: "{{ kubeconfig_path }}"
+      register: cilium_install_result
+      changed_when: >
+        cilium_release_status.rc != 0 or
+        'has been upgraded' in cilium_install_result.stdout or
+        'has been installed' in cilium_install_result.stdout
+
+  always:
+    - name: Remove the temporary Cilium values file
+      ansible.builtin.file:
+        path: "{{ cilium_values_file.path }}"
+        state: absent
+      when:
+        - cilium_values_file is defined
+        - cilium_values_file.path is defined
+
+- name: Wait for the Cilium daemonset rollout
+  ansible.builtin.command: >
+    kubectl --kubeconfig {{ kubeconfig_path }} rollout status daemonset/{{ cilium_daemonset_name }}
+    -n {{ cilium_namespace }}
+    --timeout={{ cilium_rollout_timeout }}
+  changed_when: false
+
+- name: Discover the Cilium operator deployment name
+  ansible.builtin.shell: >
+    kubectl --kubeconfig {{ kubeconfig_path }} get deployment -n {{ cilium_namespace }} -o name
+    | grep '^deployment.apps/cilium-operator'
+  register: cilium_operator_deployment
+  changed_when: false
+  failed_when: false
+
+- name: Wait for the Cilium operator rollout
+  ansible.builtin.command: >
+    kubectl --kubeconfig {{ kubeconfig_path }} rollout status
+    {{ cilium_operator_deployment.stdout | regex_replace('^deployment.apps/', 'deployment/') }}
+    -n {{ cilium_namespace }}
+    --timeout={{ cilium_rollout_timeout }}
+  when: cilium_operator_deployment.rc == 0
+  changed_when: false
+
+- name: Check Kubernetes nodes are Ready after Cilium install
+  ansible.builtin.command: >
+    kubectl --kubeconfig {{ kubeconfig_path }} get nodes --no-headers
+  register: kubectl_nodes_ready_check
+  changed_when: false
+
+- name: Fail if one or more Kubernetes nodes are not Ready after Cilium install
+  ansible.builtin.fail:
+    msg: "One or more Kubernetes nodes are not in Ready state after the Cilium install."
+  when: kubectl_nodes_ready_check.stdout is not search(' Ready ')
+
+- name: Check Talos cluster health after Cilium install
+  ansible.builtin.command: >
+    talosctl health --talosconfig {{ talosconfig_path }}
+    --wait-timeout {{ cilium_talos_health_timeout }}
+  changed_when: false

@@ -1,0 +1,69 @@
+---
+- name: Check flux CLI is installed
+  ansible.builtin.command: which flux
+  register: flux_cli_check
+  changed_when: false
+
+- name: Fail if flux CLI is missing
+  ansible.builtin.fail:
+    msg: "flux CLI is not installed on the machine running Ansible."
+  when: flux_cli_check.rc != 0
+
+- name: Check whether flux-system namespace exists
+  ansible.builtin.command: >
+    kubectl --kubeconfig {{ kubeconfig_path }} get namespace {{ flux_namespace }}
+  register: flux_namespace_check
+  changed_when: false
+  failed_when: false
+
+- name: Bootstrap Flux if not already installed
+  ansible.builtin.command: >
+    flux bootstrap github
+    --owner={{ flux_owner }}
+    --repository={{ flux_repository }}
+    --branch={{ gitops_branch }}
+    --path={{ gitops_path }}
+    --personal
+  environment:
+    GITHUB_TOKEN: "{{ lookup('env', 'GITHUB_TOKEN') }}"
+    KUBECONFIG: "{{ kubeconfig_path }}"
+  register: flux_bootstrap_result
+  changed_when: flux_bootstrap_result.rc == 0
+  when: flux_namespace_check.rc != 0
+
+- name: Wait for flux-system deployments to become available
+  ansible.builtin.command: >
+    kubectl --kubeconfig {{ kubeconfig_path }} rollout status deployment/{{ item }}
+    -n {{ flux_namespace }}
+    --timeout=120s
+  loop:
+    - source-controller
+    - kustomize-controller
+    - helm-controller
+    - notification-controller
+  register: flux_rollout_check
+  changed_when: false
+
+- name: Check Flux GitRepository objects
+  ansible.builtin.command: >
+    kubectl --kubeconfig {{ kubeconfig_path }} get gitrepositories.source.toolkit.fluxcd.io
+    -n {{ flux_namespace }}
+  register: flux_gitrepositories_check
+  changed_when: false
+
+- name: Fail if no Flux GitRepository objects are found
+  ansible.builtin.fail:
+    msg: "Flux controllers are running, but no GitRepository objects were found in {{ flux_namespace }}."
+  when: flux_gitrepositories_check.stdout_lines | length <= 1
+
+- name: Check Flux Kustomization objects
+  ansible.builtin.command: >
+    kubectl --kubeconfig {{ kubeconfig_path }} get kustomizations.kustomize.toolkit.fluxcd.io
+    -n {{ flux_namespace }}
+  register: flux_kustomizations_check
+  changed_when: false
+
+- name: Fail if no Flux Kustomization objects are found
+  ansible.builtin.fail:
+    msg: "Flux controllers are running, but no Kustomization objects were found in {{ flux_namespace }}."
+  when: flux_kustomizations_check.stdout_lines | length <= 1

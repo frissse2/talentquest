@@ -1,0 +1,81 @@
+---
+- name: Check talosctl is installed
+  ansible.builtin.command: which talosctl
+  register: talosctl_check
+  changed_when: false
+
+- name: Fail if talosctl is missing
+  ansible.builtin.fail:
+    msg: "talosctl is not installed on the machine running Ansible."
+  when: talosctl_check.rc != 0
+
+- name: Check kubectl is installed
+  ansible.builtin.command: which kubectl
+  register: kubectl_check
+  changed_when: false
+
+- name: Fail if kubectl is missing
+  ansible.builtin.fail:
+    msg: "kubectl is not installed on the machine running Ansible."
+  when: kubectl_check.rc != 0
+
+- name: Check talosctl can read client config
+  ansible.builtin.command: talosctl version --talosconfig {{ talosconfig_path }}
+  register: talos_version_check
+  changed_when: false
+
+- name: Fail if talosctl cannot use talosconfig
+  ansible.builtin.fail:
+    msg: "talosctl could not use the Talos config at {{ talosconfig_path }}."
+  when: talos_version_check.rc != 0
+
+- name: Check kubectl can reach the cluster
+  ansible.builtin.command: kubectl --kubeconfig {{ kubeconfig_path }} get nodes
+  register: kubectl_nodes_check
+  changed_when: false
+
+- name: Fail if kubectl cannot reach the cluster
+  ansible.builtin.fail:
+    msg: "kubectl could not reach the cluster using kubeconfig at {{ kubeconfig_path }}."
+  when: kubectl_nodes_check.rc != 0
+
+- name: Note that full Talos cluster health is checked later in bootstrap
+  ansible.builtin.debug:
+    msg: "Skipping talosctl health before Cilium because nodes can remain NotReady until the CNI is installed."
+
+- name: Check Kubernetes node readiness before Cilium install
+  ansible.builtin.command: >
+    kubectl --kubeconfig {{ kubeconfig_path }} get nodes --no-headers
+  register: kubectl_nodes_pre_cni_check
+  changed_when: false
+
+- name: Fail if no Kubernetes nodes are returned
+  ansible.builtin.fail:
+    msg: "kubectl returned no nodes. Cluster API may be reachable but nodes are not registered."
+  when: kubectl_nodes_pre_cni_check.stdout_lines | length == 0
+
+- name: Note when nodes are still waiting on a CNI
+  ansible.builtin.debug:
+    msg: "Kubernetes nodes are registered but not Ready yet. Continuing so the Cilium CNI can be installed."
+  when: kubectl_nodes_pre_cni_check.stdout is not search(' Ready ')
+
+- name: Get node name
+  ansible.builtin.command: >
+    kubectl --kubeconfig {{ kubeconfig_path }} get nodes -o jsonpath='{.items[0].metadata.name}'
+  register: node_name
+  changed_when: false
+
+- name: Check if control-plane taint exists
+  ansible.builtin.shell: >
+    kubectl --kubeconfig {{ kubeconfig_path }} get node {{ node_name.stdout }}
+    -o jsonpath='{.spec.taints}' | grep -q 'control-plane'
+  register: taint_check
+  changed_when: false
+  failed_when: false
+
+- name: Remove control-plane NoSchedule taint
+  ansible.builtin.command: >
+    kubectl --kubeconfig {{ kubeconfig_path }} taint nodes {{ node_name.stdout }}
+    node-role.kubernetes.io/control-plane:NoSchedule-
+  when: taint_check.rc == 0
+  changed_when: true

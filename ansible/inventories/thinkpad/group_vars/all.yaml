@@ -1,0 +1,20 @@
+cluster_name: talentquest-cluster
+machine_name: thinkpad
+environment_name: dev
+
+gitops_repo_url: "https://github.com/frissse2/talentquest.git"
+gitops_branch: "main"
+gitops_path: "clusters/home"
+
+flux_owner: "frissse2"
+flux_repository: "talentquest"
+flux_namespace: "flux-system"
+
+sops_age_secret_name: "sops-age"
+sops_age_secret_namespace: "flux-system"
+sops_age_key_file: "{{ lookup('env', 'HOME') }}/.config/sops/age/keys.txt"
+
+talosconfig_path: "{{ lookup('env', 'HOME') }}/.talos/config"
+kubeconfig_path: "{{ lookup('env', 'HOME') }}/.kube/config"
+
+ansible_python_interpreter: /opt/homebrew/bin/python3.14

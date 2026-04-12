@@ -1,0 +1,13 @@
+---
+- name: Bootstrap LifeLog cluster
+  hosts: talos_controller
+  gather_facts: false
+
+  roles:
+    - k8s_prereqs
+    - cilium
+    - flux_bootstrap
+    - sops_keys
+    - storage
+    - backup_prereqs
+    - observability_prereqs
