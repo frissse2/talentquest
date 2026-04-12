@@ -50,14 +50,6 @@ spec:
               value: "Europe/Brussels"
             - name: UMASK
               value: "002"
-          securityContext:
-            allowPrivilegeEscalation: false
-            capabilities:
-              drop:
-                - ALL
-            runAsNonRoot: true
-            runAsUser: 1000
-            runAsGroup: 1000
           readinessProbe:
             httpGet:
               path: /
