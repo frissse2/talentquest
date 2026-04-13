@@ -1,0 +1,28 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: adguard-home
+  namespace: platform
+  annotations:
+    metallb.io/loadBalancerIPs: 192.168.178.241
+spec:
+  type: LoadBalancer
+  selector:
+    app: adguard-home
+  ports:
+    - name: dns-tcp
+      port: 53
+      targetPort: dns-tcp
+      protocol: TCP
+    - name: dns-udp
+      port: 53
+      targetPort: dns-udp
+      protocol: UDP
+    - name: http
+      port: 80
+      targetPort: http
+      protocol: TCP
+    - name: admin
+      port: 3000
+      targetPort: admin
+      protocol: TCP
