@@ -45,16 +45,6 @@ spec:
             - name: admin
               containerPort: 3000
               protocol: TCP
-          readinessProbe:
-            tcpSocket:
-              port: admin
-            initialDelaySeconds: 10
-            periodSeconds: 10
-          livenessProbe:
-            tcpSocket:
-              port: admin
-            initialDelaySeconds: 30
-            periodSeconds: 20
           resources:
             requests:
               cpu: 50m
