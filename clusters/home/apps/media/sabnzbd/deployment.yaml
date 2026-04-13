@@ -54,10 +54,68 @@ spec:
                   '__encoding__ = utf-8' \
                   '[misc]' \
                   "host_whitelist = ${hosts}" \
-                  'download_dir = Downloads/incomplete' \
-                  'complete_dir = Downloads/complete' \
+                  'download_dir = /downloads/incomplete' \
+                  'complete_dir = /downloads/complete' \
                   > "$config"
               fi
+
+              if grep -q '^download_dir = ' "$config"; then
+                sed -i 's|^download_dir = .*|download_dir = /downloads/incomplete|' "$config"
+              else
+                printf '\ndownload_dir = /downloads/incomplete\n' >> "$config"
+              fi
+
+              if grep -q '^complete_dir = ' "$config"; then
+                sed -i 's|^complete_dir = .*|complete_dir = /downloads/complete|' "$config"
+              else
+                printf 'complete_dir = /downloads/complete\n' >> "$config"
+              fi
+
+              awk '
+                BEGIN { in_movies = 0; in_tv = 0; movies_done = 0; tv_done = 0 }
+                /^\[\[movies\]\]$/ {
+                  in_movies = 1
+                  in_tv = 0
+                  print
+                  next
+                }
+                /^\[\[tv\]\]$/ {
+                  in_tv = 1
+                  in_movies = 0
+                  print
+                  next
+                }
+                /^\[\[/ {
+                  in_movies = 0
+                  in_tv = 0
+                }
+                in_movies && /^dir = / {
+                  print "dir = /media/movies"
+                  movies_done = 1
+                  in_movies = 0
+                  next
+                }
+                in_tv && /^dir = / {
+                  print "dir = /media/tv"
+                  tv_done = 1
+                  in_tv = 0
+                  next
+                }
+                { print }
+                END {
+                  if (!movies_done) {
+                    print ""
+                    print "[[movies]]"
+                    print "dir = /media/movies"
+                  }
+                  if (!tv_done) {
+                    print ""
+                    print "[[tv]]"
+                    print "dir = /media/tv"
+                  }
+                }
+              ' "$config" > "${config}.tmp"
+              mv "${config}.tmp" "$config"
 
               chown 1000:1000 "$config"
           volumeMounts:
@@ -71,7 +129,9 @@ spec:
             - |
               set -eux
               mkdir -p /downloads/incomplete /downloads/complete
+              mkdir -p /media/movies /media/tv
               chown -R 1000:1000 /downloads
+              chown -R 1000:1000 /media/movies /media/tv
           securityContext:
             allowPrivilegeEscalation: false
             capabilities:
@@ -82,6 +142,10 @@ spec:
           volumeMounts:
             - name: downloads
               mountPath: /downloads
+            - name: movies
+              mountPath: /media/movies
+            - name: tv
+              mountPath: /media/tv
       containers:
         - name: sabnzbd
           image: lscr.io/linuxserver/sabnzbd:latest
@@ -123,6 +187,10 @@ spec:
               mountPath: /downloads
             - name: downloads
               mountPath: /incomplete-downloads
+            - name: movies
+              mountPath: /media/movies
+            - name: tv
+              mountPath: /media/tv
       volumes:
         - name: config
           persistentVolumeClaim:
@@ -130,3 +198,9 @@ spec:
         - name: downloads
           persistentVolumeClaim:
             claimName: media-downloads
+        - name: movies
+          persistentVolumeClaim:
+            claimName: media-library-movies
+        - name: tv
+          persistentVolumeClaim:
+            claimName: media-library-tv
