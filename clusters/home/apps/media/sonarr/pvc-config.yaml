@@ -8,4 +8,5 @@ spec:
   resources:
     requests:
       storage: 5Gi
-  storageClassName: local-path
+  storageClassName: ""
+  volumeName: sonarr-config-pv
