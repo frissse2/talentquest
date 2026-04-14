@@ -5,3 +5,5 @@ resources:
   - whoami
   - jellyfin
   - sabnzbd
+  - sonarr
+  - radarr

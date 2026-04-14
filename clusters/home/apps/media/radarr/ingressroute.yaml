@@ -1,0 +1,13 @@
+apiVersion: traefik.io/v1alpha1
+kind: IngressRoute
+metadata:
+  name: radarr
+spec:
+  entryPoints:
+    - web
+  routes:
+    - kind: Rule
+      match: Host(`radarr.home.arpa`)
+      services:
+        - name: radarr
+          port: 80
