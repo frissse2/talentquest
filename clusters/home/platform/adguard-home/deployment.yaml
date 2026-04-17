@@ -23,14 +23,24 @@ spec:
             - -c
             - |
               set -eu
-              mkdir -p /data/conf /data/work
+              mkdir -p /config /data/work
+              cp /bootstrap/AdGuardHome.yaml /config/AdGuardHome.yaml
           volumeMounts:
             - name: data
               mountPath: /data
+            - name: config
+              mountPath: /config
+            - name: bootstrap-config
+              mountPath: /bootstrap
+              readOnly: true
       containers:
         - name: adguard-home
           image: adguard/adguardhome:v0.107.65
           args:
+            - -c
+            - /opt/adguardhome/conf/AdGuardHome.yaml
+            - -w
+            - /opt/adguardhome/work
             - --no-check-update
           ports:
             - name: dns-tcp
@@ -54,12 +64,16 @@ spec:
               memory: 512Mi
           volumeMounts:
             - name: data
-              mountPath: /opt/adguardhome/conf
-              subPath: conf
-            - name: data
               mountPath: /opt/adguardhome/work
               subPath: work
+            - name: config
+              mountPath: /opt/adguardhome/conf
       volumes:
         - name: data
           persistentVolumeClaim:
             claimName: adguard-home-data
+        - name: config
+          emptyDir: {}
+        - name: bootstrap-config
+          configMap:
+            name: adguard-home-bootstrap
