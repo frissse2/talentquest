@@ -134,15 +134,12 @@ machine:
     # # Allows the addition of user specified files.
 
     # # MachineFiles usage example.
-    files:
-        - content: |
-            TS_AUTHKEY=tskey-auth-kPcRFqnX9621CNTRL-Y8CSXM1VJS7dkCTJj8L1S7oKcJ8ipYFVj
-            TS_ROUTES=10.96.0.0/12,10.244.0.0/16
-            TS_ACCEPT_DNS=true
-            TS_EXTRA_ARGS=--hostname=lifelog-thinkpad
-          path: /var/etc/tailscale/auth.env
-          permissions: 0o600
-          op: create # The operation to use
+    # files:
+    #     - content: |
+    #         example=value
+    #       path: /var/example/file
+    #       permissions: 0o600
+    #       op: create # The operation to use
 
     # # The `env` field allows for the addition of environment variables.
 
@@ -397,13 +394,3 @@ auto: stable # A method to automatically generate a hostname for the machine.
 # # A static hostname to set for the machine.
 # hostname: controlplane1
 # hostname: controlplane1.example.org
-
----
-apiVersion: v1alpha1
-kind: ExtensionServiceConfig
-name: tailscale
-environment:
-  - TS_AUTHKEY=$TAILSCALE_AUTH_KEY
-  - TS_ROUTES=10.96.0.0/12,10.244.0.0/16
-  - TS_ACCEPT_DNS=true
-  - TS_EXTRA_ARGS=--hostname=lifelog-thinkpad

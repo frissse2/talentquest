@@ -8,4 +8,3 @@ resources:
   - platform-namespace.yaml
   - pipelines-namespace.yaml
   - serving-namespace.yaml
-  - tailscale-namespace.yaml
